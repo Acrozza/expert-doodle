@@ -1,4 +1,4 @@
--- Blade Ball Parry Script - Instant Load Version
+-- Blade Ball Parry Script - Debug Version
 -- Hosted at: https://github.com/Acrozza/expert-doodle
 
 local Players = game:GetService("Players")
@@ -11,21 +11,21 @@ local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
--- Configuration
+-- Configuration (more permissive for testing)
 local config = {
     ParryKey = Enum.KeyCode.F,
-    ParryRange = 15,
-    ParryAngle = 60,
-    ParryCooldown = 1.5,
-    ParryForce = 150,
-    BallNames = {"Ball", "BladeBall", "GameBall", "SwordBall"}
+    ParryRange = 20,  -- Increased range
+    ParryAngle = 90,  -- Wider angle
+    ParryCooldown = 1.0,  -- Shorter cooldown
+    ParryForce = 200,  -- Stronger force
+    BallNames = {"Ball", "BladeBall", "GameBall", "SwordBall", "Blade"}
 }
 
 -- State
 local lastParryTime = 0
 local isParrying = false
 
--- Create simple UI
+-- Create UI
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ParryUI"
 screenGui.ResetOnSpawn = false
@@ -74,22 +74,34 @@ local fillCorner = Instance.new("UICorner")
 fillCorner.CornerRadius = UDim.new(0, 4)
 fillCorner.Parent = cooldownFill
 
--- Find ball
+-- Debug function
+local function debugPrint(message)
+    print("[Blade Ball Parry] " .. message)
+end
+
+-- Find ball with more aggressive search
 local function findBall()
+    -- First try exact names
     for _, name in ipairs(config.BallNames) do
         local ball = workspace:FindFirstChild(name)
         if ball and ball:IsA("BasePart") then
+            debugPrint("Found ball by name: " .. name)
             return ball
         end
     end
     
-    -- Try to find any ball-like object
-    for _, obj in ipairs(workspace:GetChildren()) do
-        if obj:IsA("BasePart") and (obj.Name:lower():find("ball") or obj.Name:lower():find("blade")) then
-            return obj
+    -- Then try searching all parts
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local nameLower = obj.Name:lower()
+            if nameLower:find("ball") or nameLower:find("blade") then
+                debugPrint("Found ball by search: " .. obj.Name)
+                return obj
+            end
         end
     end
     
+    debugPrint("No ball found!")
     return nil
 end
 
@@ -112,18 +124,31 @@ local function updateUI()
     end
 end
 
--- Parry function
+-- Parry function with debug info
 local function parry()
-    if tick() - lastParryTime < config.ParryCooldown or isParrying then return end
+    debugPrint("Parry function called")
+    
+    if tick() - lastParryTime < config.ParryCooldown then
+        debugPrint("On cooldown")
+        return
+    end
+    
+    if isParrying then
+        debugPrint("Already parrying")
+        return
+    end
     
     isParrying = true
     lastParryTime = tick()
     
     local ball = findBall()
     if not ball then 
+        debugPrint("No ball found")
         isParrying = false
         return 
     end
+    
+    debugPrint("Ball found: " .. ball.Name)
     
     -- Calculate distance and angle
     local distance = (ball.Position - rootPart.Position).Magnitude
@@ -131,11 +156,17 @@ local function parry()
     local lookVector = rootPart.CFrame.LookVector
     local angle = math.deg(math.acos(math.clamp(direction:Dot(lookVector), -1, 1)))
     
+    debugPrint("Distance: " .. distance .. " Angle: " .. angle)
+    
     -- Check if within range and angle
     if distance <= config.ParryRange and angle <= config.ParryAngle then
+        debugPrint("Parry conditions met!")
+        
         -- Apply force
         local parryDirection = (ball.Position - rootPart.Position).Unit
         ball.Velocity = parryDirection * config.ParryForce
+        
+        debugPrint("Applied velocity: " .. tostring(ball.Velocity))
         
         -- Visual effect
         local flash = Instance.new("Part")
@@ -151,6 +182,8 @@ local function parry()
         -- UI feedback
         statusLabel.Text = "PARRIED!"
         statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    else
+        debugPrint("Parry conditions not met")
     end
     
     isParrying = false
@@ -178,6 +211,7 @@ RunService.Heartbeat:Connect(updateUI)
 player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     rootPart = character:WaitForChild("HumanoidRootPart")
+    debugPrint("Character respawned")
 end)
 
 -- Simple notification
@@ -199,4 +233,15 @@ notifCorner.Parent = notification
 -- Remove notification after 3 seconds
 game:GetService("Debris"):AddItem(notification, 3)
 
-print("Blade Ball Parry script loaded!")
+debugPrint("Blade Ball Parry script loaded!")
+
+-- Auto-detect ball every 5 seconds
+spawn(function()
+    while true do
+        wait(5)
+        local ball = findBall()
+        if ball then
+            debugPrint("Auto-detected ball: " .. ball.Name)
+        end
+    end
+end)
