@@ -1,24 +1,25 @@
--- Blade Ball Parry Script - Debug Version
+-- Blade Ball Parry Script - Enhanced Version
 -- Hosted at: https://github.com/Acrozza/expert-doodle
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
+local Workspace = game:GetService("Workspace")
 
 -- Get player
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
--- Configuration (more permissive for testing)
+-- Configuration
 local config = {
     ParryKey = Enum.KeyCode.F,
-    ParryRange = 20,  -- Increased range
-    ParryAngle = 90,  -- Wider angle
-    ParryCooldown = 1.0,  -- Shorter cooldown
-    ParryForce = 200,  -- Stronger force
-    BallNames = {"Ball", "BladeBall", "GameBall", "SwordBall", "Blade"}
+    ParryRange = 25,  -- Increased range
+    ParryAngle = 120,  -- Very wide angle
+    ParryCooldown = 0.5,  -- Very short cooldown
+    ParryForce = 300,  -- Stronger force
+    BallNames = {"Ball", "BladeBall", "GameBall", "SwordBall", "Blade", "Projectile"}
 }
 
 -- State
@@ -79,25 +80,33 @@ local function debugPrint(message)
     print("[Blade Ball Parry] " .. message)
 end
 
--- Find ball with more aggressive search
+-- Find ball with aggressive search
 local function findBall()
-    -- First try exact names
+    -- Try exact names first
     for _, name in ipairs(config.BallNames) do
-        local ball = workspace:FindFirstChild(name)
+        local ball = Workspace:FindFirstChild(name)
         if ball and ball:IsA("BasePart") then
             debugPrint("Found ball by name: " .. name)
             return ball
         end
     end
     
-    -- Then try searching all parts
-    for _, obj in ipairs(workspace:GetDescendants()) do
+    -- Search all parts in workspace
+    for _, obj in ipairs(Workspace:GetDescendants()) do
         if obj:IsA("BasePart") then
             local nameLower = obj.Name:lower()
-            if nameLower:find("ball") or nameLower:find("blade") then
+            if nameLower:find("ball") or nameLower:find("blade") or nameLower:find("projectile") then
                 debugPrint("Found ball by search: " .. obj.Name)
                 return obj
             end
+        end
+    end
+    
+    -- If still not found, look for any moving part
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Velocity.Magnitude > 5 then
+            debugPrint("Found moving object: " .. obj.Name)
+            return obj
         end
     end
     
@@ -124,7 +133,7 @@ local function updateUI()
     end
 end
 
--- Parry function with debug info
+-- Parry function with multiple methods
 local function parry()
     debugPrint("Parry function called")
     
@@ -141,49 +150,83 @@ local function parry()
     isParrying = true
     lastParryTime = tick()
     
+    -- Show parry attempt
+    statusLabel.Text = "PARRYING!"
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    
+    -- Create visual effect
+    local flash = Instance.new("Part")
+    flash.Size = Vector3.new(8, 12, 2)
+    flash.Color = Color3.fromRGB(255, 255, 0)
+    flash.Material = Enum.Material.Neon
+    flash.Anchored = true
+    flash.CanCollide = false
+    flash.CFrame = rootPart.CFrame * CFrame.new(0, 0, -5)
+    flash.Parent = Workspace
+    Debris:AddItem(flash, 0.3)
+    
+    -- Find ball
     local ball = findBall()
     if not ball then 
         debugPrint("No ball found")
         isParrying = false
+        updateUI()
         return 
     end
     
     debugPrint("Ball found: " .. ball.Name)
     
-    -- Calculate distance and angle
+    -- Calculate distance
     local distance = (ball.Position - rootPart.Position).Magnitude
-    local direction = (ball.Position - rootPart.Position).Unit
-    local lookVector = rootPart.CFrame.LookVector
-    local angle = math.deg(math.acos(math.clamp(direction:Dot(lookVector), -1, 1)))
+    debugPrint("Distance to ball: " .. distance)
     
-    debugPrint("Distance: " .. distance .. " Angle: " .. angle)
-    
-    -- Check if within range and angle
-    if distance <= config.ParryRange and angle <= config.ParryAngle then
-        debugPrint("Parry conditions met!")
+    -- Check if within range
+    if distance <= config.ParryRange then
+        debugPrint("Ball in range!")
         
-        -- Apply force
+        -- Method 1: Direct velocity
         local parryDirection = (ball.Position - rootPart.Position).Unit
         ball.Velocity = parryDirection * config.ParryForce
-        
         debugPrint("Applied velocity: " .. tostring(ball.Velocity))
         
-        -- Visual effect
-        local flash = Instance.new("Part")
-        flash.Size = Vector3.new(5, 8, 1)
-        flash.Color = Color3.fromRGB(255, 255, 200)
-        flash.Material = Enum.Material.Neon
-        flash.Anchored = true
-        flash.CanCollide = false
-        flash.CFrame = rootPart.CFrame * CFrame.new(0, 0, -3)
-        flash.Parent = workspace
-        Debris:AddItem(flash, 0.2)
+        -- Method 2: BodyVelocity (backup)
+        spawn(function()
+            wait(0.1)
+            if ball.Velocity.Magnitude < 50 then
+                debugPrint("Trying BodyVelocity method")
+                local bv = Instance.new("BodyVelocity")
+                bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                bv.P = 5000
+                bv.Velocity = parryDirection * config.ParryForce
+                bv.Parent = ball
+                Debris:AddItem(bv, 0.2)
+            end
+        end)
         
-        -- UI feedback
+        -- Method 3: Apply impulse (if available)
+        if ball:FindFirstChild("ApplyImpulse") then
+            debugPrint("Applying impulse")
+            ball:ApplyImpulse(parryDirection * config.ParryForce * 10)
+        end
+        
+        -- Success feedback
         statusLabel.Text = "PARRIED!"
-        statusLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        
+        -- Create success effect
+        local successEffect = Instance.new("Part")
+        successEffect.Size = Vector3.new(10, 10, 10)
+        successEffect.Color = Color3.fromRGB(0, 255, 0)
+        successEffect.Material = Enum.Material.Neon
+        successEffect.Anchored = true
+        successEffect.CanCollide = false
+        successEffect.CFrame = ball.CFrame
+        successEffect.Parent = Workspace
+        Debris:AddItem(successEffect, 0.2)
     else
-        debugPrint("Parry conditions not met")
+        debugPrint("Ball out of range")
+        statusLabel.Text = "OUT OF RANGE"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
     end
     
     isParrying = false
@@ -235,10 +278,10 @@ game:GetService("Debris"):AddItem(notification, 3)
 
 debugPrint("Blade Ball Parry script loaded!")
 
--- Auto-detect ball every 5 seconds
+-- Auto-detect ball every 2 seconds
 spawn(function()
     while true do
-        wait(5)
+        wait(2)
         local ball = findBall()
         if ball then
             debugPrint("Auto-detected ball: " .. ball.Name)
