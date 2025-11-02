@@ -1,23 +1,13 @@
--- Blade Ball Parry Script - Xeno Executor Compatible
+-- Blade Ball Parry Script - Instant Load Version
 -- Hosted at: https://github.com/Acrozza/expert-doodle
 
--- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
 
--- Xeno Executor compatibility check
-local function isXeno()
-    return getexecutorname and getexecutorname():lower():find("xeno") ~= nil
-end
-
--- Player setup
+-- Get player
 local player = Players.LocalPlayer
-if not player then
-    player = Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
-end
-
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
@@ -31,71 +21,58 @@ local config = {
     BallNames = {"Ball", "BladeBall", "GameBall", "SwordBall"}
 }
 
--- State variables
+-- State
 local lastParryTime = 0
 local isParrying = false
 
--- Create UI
-local function createUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "ParryUI"
-    screenGui.ResetOnSpawn = false
-    screenGui.Parent = player:WaitForChild("PlayerGui")
-    
-    -- Main container
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(0, 200, 0, 60)
-    container.Position = UDim2.new(0.5, -100, 0.85, 0)
-    container.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    container.BorderSizePixel = 0
-    container.Parent = screenGui
-    
-    -- Rounded corners
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = container
-    
-    -- Status label
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(1, 0, 0, 30)
-    statusLabel.Position = UDim2.new(0, 0, 0, 5)
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.Text = "READY TO PARRY"
-    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    statusLabel.TextScaled = true
-    statusLabel.Font = Enum.Font.GothamBold
-    statusLabel.Parent = container
-    
-    -- Cooldown bar background
-    local cooldownBar = Instance.new("Frame")
-    cooldownBar.Size = UDim2.new(0, 180, 0, 8)
-    cooldownBar.Position = UDim2.new(0.5, -90, 0, 40)
-    cooldownBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    cooldownBar.BorderSizePixel = 0
-    cooldownBar.Parent = container
-    
-    -- Cooldown bar fill
-    local cooldownFill = Instance.new("Frame")
-    cooldownFill.Size = UDim2.new(1, 0, 1, 0)
-    cooldownFill.Position = UDim2.new(0, 0, 0, 0)
-    cooldownFill.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
-    cooldownFill.BorderSizePixel = 0
-    cooldownFill.Parent = cooldownBar
-    
-    -- Rounded corners for bars
-    local barCorner = Instance.new("UICorner")
-    barCorner.CornerRadius = UDim.new(0, 4)
-    barCorner.Parent = cooldownBar
-    
-    local fillCorner = Instance.new("UICorner")
-    fillCorner.CornerRadius = UDim.new(0, 4)
-    fillCorner.Parent = cooldownFill
-    
-    return screenGui, statusLabel, cooldownFill
-end
+-- Create simple UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ParryUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Create UI elements
-local screenGui, statusLabel, cooldownFill = createUI()
+local container = Instance.new("Frame")
+container.Size = UDim2.new(0, 200, 0, 60)
+container.Position = UDim2.new(0.5, -100, 0.85, 0)
+container.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+container.BorderSizePixel = 0
+container.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = container
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 0, 30)
+statusLabel.Position = UDim2.new(0, 0, 0, 5)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "READY TO PARRY"
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.TextScaled = true
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.Parent = container
+
+local cooldownBar = Instance.new("Frame")
+cooldownBar.Size = UDim2.new(0, 180, 0, 8)
+cooldownBar.Position = UDim2.new(0.5, -90, 0, 40)
+cooldownBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+cooldownBar.BorderSizePixel = 0
+cooldownBar.Parent = container
+
+local cooldownFill = Instance.new("Frame")
+cooldownFill.Size = UDim2.new(1, 0, 1, 0)
+cooldownFill.Position = UDim2.new(0, 0, 0, 0)
+cooldownFill.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+cooldownFill.BorderSizePixel = 0
+cooldownFill.Parent = cooldownBar
+
+local barCorner = Instance.new("UICorner")
+barCorner.CornerRadius = UDim.new(0, 4)
+barCorner.Parent = cooldownBar
+
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(0, 4)
+fillCorner.Parent = cooldownFill
 
 -- Find ball
 local function findBall()
@@ -203,31 +180,23 @@ player.CharacterAdded:Connect(function(newCharacter)
     rootPart = character:WaitForChild("HumanoidRootPart")
 end)
 
--- Notification
-local function showNotification(message)
-    local notification = Instance.new("TextLabel")
-    notification.Size = UDim2.new(0, 250, 0, 40)
-    notification.Position = UDim2.new(0.5, -125, 0.3, 0)
-    notification.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    notification.BackgroundTransparency = 0.3
-    notification.Text = message
-    notification.TextColor3 = Color3.fromRGB(255, 255, 255)
-    notification.TextScaled = true
-    notification.Font = Enum.Font.GothamBold
-    notification.Parent = screenGui
+-- Simple notification
+local notification = Instance.new("TextLabel")
+notification.Size = UDim2.new(0, 250, 0, 40)
+notification.Position = UDim2.new(0.5, -125, 0.3, 0)
+notification.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+notification.BackgroundTransparency = 0.3
+notification.Text = "Blade Ball Parry Ready!"
+notification.TextColor3 = Color3.fromRGB(255, 255, 255)
+notification.TextScaled = true
+notification.Font = Enum.Font.GothamBold
+notification.Parent = screenGui
 
-    local notifCorner = Instance.new("UICorner")
-    notifCorner.CornerRadius = UDim.new(0, 8)
-    notifCorner.Parent = notification
+local notifCorner = Instance.new("UICorner")
+notifCorner.CornerRadius = UDim.new(0, 8)
+notifCorner.Parent = notification
 
-    Debris:AddItem(notification, 3)
-end
+-- Remove notification after 3 seconds
+game:GetService("Debris"):AddItem(notification, 3)
 
--- Show executor-specific notification
-if isXeno() then
-    showNotification("Blade Ball Parry - Xeno Ready!")
-else
-    showNotification("Blade Ball Parry Loaded!")
-end
-
-print("Blade Ball Parry script loaded successfully!")
+print("Blade Ball Parry script loaded!")
