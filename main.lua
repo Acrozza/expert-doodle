@@ -1,16 +1,14 @@
--- Blade Ball Parry Script - Xeno Executor Compatible
--- By Acrozza
+-- Blade Ball Parry Script
+-- Hosted at: https://github.com/Acrozza/expert-doodle
 
--- Services
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
-local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
--- Xeno Executor compatibility
+-- Executor detection
 local function getExecutor()
     if syn and syn.protect_gui then
         return "Synapse X"
@@ -25,7 +23,6 @@ local function getExecutor()
     end
 end
 
--- Executor detection
 local executor = getExecutor()
 print("Detected executor:", executor)
 
@@ -411,13 +408,10 @@ local function initialize()
     
     -- Executor-specific optimizations
     if executor == "Synapse X" then
-        -- Synapse X specific optimizations
         print("Applying Synapse X optimizations")
     elseif executor == "KRNL" then
-        -- KRNL specific optimizations
         print("Applying KRNL optimizations")
     elseif executor == "Fluxus" then
-        -- Fluxus specific optimizations
         print("Applying Fluxus optimizations")
     end
     
