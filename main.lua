@@ -16,10 +16,10 @@ local function getExecutor()
         return "KRNL"
     elseif Fluxus then
         return "Fluxus"
-    elseif getexecutorname then
-        return getexecutorname()
+    elseif Xeno then
+        return Xeno
     else
-        return "Unknown"
+        return "Xeno"
     end
 end
 
